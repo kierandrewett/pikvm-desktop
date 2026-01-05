@@ -1,0 +1,32 @@
+body {
+    display: flex;
+    justify-content: center;
+}
+
+[data-wm-normalize] {
+    display: none !important;
+}
+
+#navbar {
+    background-color: rgba(0, 0, 0, 0.85) !important;
+    backdrop-filter: blur(10px) saturate(150%) !important;
+    font-size: 13px !important;
+    height: 30px !important;
+    max-width: min(1100px, 100%) !important;
+    border: 1px solid rgba(128, 128, 128, 0.35);
+    border-radius: 0px 0px 8px 8px;
+    display: flex;
+}
+
+#navbar li {
+    max-height: 100% !important;
+    height: 100% !important;
+}
+
+#navbar-show-button {
+    border: 1px solid rgba(128, 128, 128, 0.5) !important;
+}
+
+#navbar-show-button:active {
+    transform: translateX(4px) !important;
+}

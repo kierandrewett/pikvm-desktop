@@ -1,0 +1,28 @@
+{
+    "name": "pikvm-desktop",
+    "description": "PiKVM Desktop Client",
+    "version": "1.1.0",
+    "main": "main.js",
+    "repository": "https://github.com/kierandrewett/pikvm-desktop",
+    "author": "kierandrewett <kieran@drewett.dev>",
+    "license": "MIT",
+    "scripts": {
+        "start": "electron dist",
+        "build": "rm -rf dist && esbuild --outdir=dist --platform=node --bundle --external:electron src/*.ts && cp package.json dist/package.json && cp -r src/static dist/static && cp -r src/views dist/views",
+        "package:linux": "make package",
+        "postinstall": "patch-package"
+    },
+    "dependencies": {
+        "axios": "^1.13.2"
+    },
+    "devDependencies": {
+        "@electron/packager": "^19.0.1",
+        "@types/node": "^25.0.3",
+        "electron": "^39.2.7",
+        "electron-installer-flatpak": "^0.8.0",
+        "electron-installer-redhat": "^3.4.0",
+        "esbuild": "^0.27.2",
+        "patch-package": "^8.0.1",
+        "typescript": "^5.9.3"
+    }
+}
