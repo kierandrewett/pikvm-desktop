@@ -31,6 +31,7 @@ body {
     -webkit-user-drag: none !important;
     background-color: var(--bg-color);
     color: var(--fg-color);
+    scrollbar-color: rgb(128, 128, 128, 1) rgb(128, 128, 128, 0.2);
 }
 
 body::before {
@@ -86,6 +87,7 @@ body::before {
     padding-inline-end: 2px;
     position: fixed;
     right: 0;
+    background-color: var(--titlebar-active-bg);
 }
 
 .controls button {
@@ -142,6 +144,10 @@ body::before {
     user-select: none;
     font-weight: bold;
     position: fixed;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 75%;
+    overflow: clip;
 }
 
 #pikvm-panel {

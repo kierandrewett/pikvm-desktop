@@ -7,6 +7,8 @@ import {
     screen,
     dialog,
     nativeTheme,
+    session,
+    Rectangle,
 } from "electron";
 import { readFileSync, existsSync, writeFileSync } from "fs";
 import { url } from "inspector/promises";
@@ -84,6 +86,8 @@ function createWindow() {
             width: w!,
             height: h!,
         });
+
+        mainView.webContents.send("window:resize", mainView.getBounds());
     };
 
     win.on("resize", layout);
@@ -207,12 +211,15 @@ function createWindow() {
         console.log("Navigated:", url);
 
         const isKVMPage = new URL(url).pathname.startsWith("/kvm");
+        const isTerminalPage = new URL(url).pathname.startsWith(
+            "/extras/webterm"
+        );
         console.log("KVM page:", isKVMPage);
 
         await wc.executeJavaScript(`window.kvm?.init?.()`);
         sendWindowState();
 
-        if (isKVMPage) {
+        if (isKVMPage || isTerminalPage) {
             await wc.executeJavaScript(`window.kvm?.enter?.()`);
             canMaximize = true;
             win.setMaximizable(true);
@@ -285,6 +292,50 @@ function createWindow() {
             wc.navigationHistory.goBack();
         } else {
             console.log("No navigation history to go back to");
+        }
+    });
+
+    let lastStreamData: any = null;
+
+    ipcMain.on("kvm-stream-data", (_, data) => {
+        console.log("KVM stream data:", data);
+
+        if (
+            lastStreamData &&
+            lastStreamData.width === data.width &&
+            lastStreamData.height === data.height &&
+            lastStreamData.isTransmittingAudio === data.isTransmittingAudio &&
+            lastStreamData.isTransmittingMicrophone ===
+                data.isTransmittingMicrophone
+        ) {
+            return;
+        }
+
+        lastStreamData = data;
+
+        try {
+            if (
+                data.width &&
+                data.height &&
+                typeof data.width === "number" &&
+                typeof data.height === "number"
+            ) {
+                console.log(
+                    `Resizing window to stream dimensions: ${data.width}x${data.height}`
+                );
+
+                win.setContentSize(data.width, data.height + TITLEBAR_HEIGHT);
+                setTimeout(() => {
+                    layout();
+                }, 100);
+            }
+
+            mainView.webContents.send("kvm:media-transmission", {
+                isTransmittingAudio: data.isTransmittingAudio,
+                isTransmittingMicrophone: data.isTransmittingMicrophone,
+            });
+        } catch (e) {
+            console.error("Failed to parse stream dimensions:", e);
         }
     });
 
@@ -376,6 +427,17 @@ function createWindow() {
                     validatedURL +
                     "\n\nPlease check the PiKVM URL in settings."
             );
+        }
+    );
+
+    session.defaultSession.setPermissionRequestHandler(
+        (webContents, permission, callback) => {
+            if (permission === "media") {
+                callback(true);
+            } else {
+                console.log(`Blocked permission request: ${permission}`);
+                callback(false);
+            }
         }
     );
 

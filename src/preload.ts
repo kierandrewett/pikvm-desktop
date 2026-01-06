@@ -62,7 +62,112 @@ contextBridge.exposeInMainWorld("kvm", {
                 console.log("Preload navigating back");
 
                 ipcRenderer.send("navigate-back");
+            } else if (e.data.startsWith("kvm:stream-data::")) {
+                console.log("Preload received stream data");
+
+                let data = e.data.replace("kvm:stream-data::", "");
+                data = JSON.parse(data);
+
+                ipcRenderer.send("kvm-stream-data", data);
             }
+        });
+
+        inject((_) => {
+            (globalThis as any)._getStreamInfoEl = () => {
+                let streamInfoEl = document.querySelector(
+                    "#pikvm-desktop-stream-info"
+                ) as HTMLDivElement | null;
+
+                if (!streamInfoEl) {
+                    const windowSizeEl = document.createElement("div");
+                    windowSizeEl.classList.add("window-size");
+
+                    const mediaStatusEl = document.createElement("div");
+                    mediaStatusEl.classList.add("media-status");
+                    mediaStatusEl.style.display = "none";
+
+                    const newEl = document.createElement("div");
+                    newEl.id = "pikvm-desktop-stream-info";
+
+                    newEl.appendChild(windowSizeEl);
+                    newEl.appendChild(mediaStatusEl);
+
+                    document.body.appendChild(newEl);
+                }
+
+                return document.querySelector(
+                    "#pikvm-desktop-stream-info"
+                ) as HTMLDivElement;
+            };
+        });
+
+        ipcRenderer.on("window:resize", (_, bounds) => {
+            inject((b) => {
+                const streamInfoEl = (globalThis as any)._getStreamInfoEl();
+                if (!streamInfoEl) return;
+
+                if ((globalThis as any)._streamInfoShowTimer) {
+                    clearTimeout((globalThis as any)._streamInfoShowTimer);
+                }
+
+                const sizeEl = document.querySelector(
+                    "#pikvm-desktop-stream-info .window-size"
+                ) as HTMLDivElement;
+
+                sizeEl.textContent = `${b.width} x ${b.height}`;
+                streamInfoEl.setAttribute("data-visible", "true");
+
+                (globalThis as any)._streamInfoShowTimer = setTimeout(() => {
+                    streamInfoEl.removeAttribute("data-visible");
+                }, 3000);
+            }, bounds);
+        });
+
+        ipcRenderer.on("kvm:media-transmission", (_, data) => {
+            inject((d) => {
+                document.body.setAttribute(
+                    "data-audio-transmitting",
+                    d.isTransmittingAudio ? "true" : "false"
+                );
+                document.body.setAttribute(
+                    "data-mic-transmitting",
+                    d.isTransmittingMicrophone ? "true" : "false"
+                );
+
+                const streamInfoEl = (globalThis as any)._getStreamInfoEl();
+                if (!streamInfoEl) return;
+
+                clearTimeout((globalThis as any)._streamInfoShowTimer);
+
+                const mediaStatusEl = document.querySelector(
+                    "#pikvm-desktop-stream-info .media-status"
+                ) as HTMLDivElement;
+
+                mediaStatusEl.style.display =
+                    d.isTransmittingAudio || d.isTransmittingMicrophone
+                        ? ""
+                        : "none";
+
+                const parts = [];
+
+                if (d.isTransmittingAudio) {
+                    parts.push(
+                        `<span class="media-pill audio">🔊 Audio</span>`
+                    );
+                }
+
+                if (d.isTransmittingMicrophone) {
+                    parts.push(`<span class="media-pill mic">🎤 Mic</span>`);
+                }
+
+                mediaStatusEl.innerHTML = parts.join("");
+
+                streamInfoEl.classList.add("visible");
+
+                (globalThis as any)._streamInfoShowTimer = setTimeout(() => {
+                    streamInfoEl.classList.remove("visible");
+                }, 3000);
+            }, data);
         });
 
         inject(() => {
@@ -101,6 +206,70 @@ contextBridge.exposeInMainWorld("kvm", {
                         state.theme || "light"
                     );
                 });
+
+                const streamInfo = document.querySelector(
+                    "#stream-info"
+                ) as HTMLDivElement | null;
+
+                if (streamInfo) {
+                    let lastDims = "";
+
+                    const extractDims = (text: string) => {
+                        const m = text.match(/(\d+)\s*x\s*(\d+)/);
+                        return m ? `${m[1]}x${m[2]}` : "";
+                    };
+
+                    const observer = new MutationObserver(() => {
+                        const firstText = streamInfo.childNodes[0]?.nodeValue;
+
+                        const isTransmittingAudio = firstText
+                            ?.toLowerCase()
+                            .includes("audio")
+                            ? true
+                            : false;
+
+                        const isTransmittingMicrophone = firstText
+                            ?.toLowerCase()
+                            .includes("mic")
+                            ? true
+                            : false;
+
+                        const dims = extractDims(firstText || "");
+                        if (!dims || !dims.includes("x")) return;
+
+                        const width = parseInt(dims!.split("x")[0]!, 10);
+                        const height = parseInt(dims!.split("x")[1]!, 10);
+
+                        window.postMessage(
+                            `kvm:stream-data::${JSON.stringify({
+                                width,
+                                height,
+                                isTransmittingAudio,
+                                isTransmittingMicrophone,
+                            })}`,
+                            "*"
+                        );
+                    });
+
+                    observer.observe(streamInfo, {
+                        childList: true,
+                        subtree: true,
+                        characterData: true,
+                    });
+                }
+
+                const transmittingDots = document.createElement("div");
+                transmittingDots.id = "pikvm-desktop-transmitting-dots";
+
+                const audioDot = document.createElement("div");
+                audioDot.classList.add("dot", "audio");
+                transmittingDots.appendChild(audioDot);
+
+                const micDot = document.createElement("div");
+                micDot.classList.add("dot", "mic");
+                transmittingDots.appendChild(micDot);
+
+                document.body.appendChild(transmittingDots);
 
                 if (btn || backButton) {
                     done = true;
