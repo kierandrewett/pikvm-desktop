@@ -170,6 +170,58 @@ contextBridge.exposeInMainWorld("kvm", {
             }, data);
         });
 
+        ipcRenderer.on("kvm:release-mouse", () => {
+            inject(() => {
+                const existingOverlay = document.getElementById(
+                    "pikvm-desktop-mouse-release-overlay"
+                );
+                if (existingOverlay) {
+                    existingOverlay.remove();
+                }
+
+                const overlay = document.createElement("a");
+                overlay.id = "pikvm-desktop-mouse-release-overlay";
+                overlay.textContent =
+                    "Mouse released. Click to regain control.";
+
+                const kill = (e) => {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    return false;
+                };
+
+                [
+                    "keydown",
+                    "keyup",
+                    "keypress",
+                    "mousedown",
+                    "mouseup",
+                    "mousemove",
+                    "wheel",
+                    "contextmenu",
+                ].forEach((ev) => window.addEventListener(ev, kill, true));
+
+                overlay.addEventListener("click", () => {
+                    [
+                        "keydown",
+                        "keyup",
+                        "keypress",
+                        "mousedown",
+                        "mouseup",
+                        "mousemove",
+                        "wheel",
+                        "contextmenu",
+                    ].forEach((ev) =>
+                        window.removeEventListener(ev, kill, true)
+                    );
+                    overlay.remove();
+                    document.body.focus();
+                });
+
+                document.body.appendChild(overlay);
+            });
+        });
+
         inject(() => {
             let done = false;
 

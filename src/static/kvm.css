@@ -30,3 +30,7 @@ body {
 #pikvm-desktop-transmitting-dots {
     visibility: visible !important;
 }
+
+#pikvm-desktop-mouse-release-overlay {
+    visibility: visible !important;
+}

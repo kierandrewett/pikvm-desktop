@@ -430,6 +430,32 @@ function createWindow() {
         }
     );
 
+    let comboStart: number | null = null;
+    let comboActive = false;
+
+    mainView.webContents.on("before-input-event", (_, input) => {
+        const fullCombo = input.control && input.shift && input.alt;
+
+        // combo just became active
+        if (input.type === "keyDown" && fullCombo && !comboActive) {
+            comboActive = true;
+            comboStart = Date.now();
+        }
+
+        // combo just broke
+        if (input.type === "keyUp" && comboActive && !fullCombo) {
+            const duration = Date.now() - (comboStart ?? 0);
+            comboActive = false;
+            comboStart = null;
+
+            if (duration <= 300) {
+                setTimeout(() => {
+                    mainView.webContents.send("kvm:release-mouse");
+                }, 100);
+            }
+        }
+    });
+
     session.defaultSession.setPermissionRequestHandler(
         (webContents, permission, callback) => {
             if (permission === "media") {
